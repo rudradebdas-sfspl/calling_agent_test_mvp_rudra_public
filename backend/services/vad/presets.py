@@ -27,7 +27,7 @@ class VADParams:
 PRESETS: dict[str, VADParams] = {
     LOW_SENSITIVITY: VADParams(threshold=0.65, min_speech_ms=350, min_silence_ms=900),
     NORMAL: VADParams(threshold=0.50, min_speech_ms=250, min_silence_ms=700),
-    AGGRESSIVE: VADParams(threshold=0.40, min_speech_ms=200, min_silence_ms=500),
+    AGGRESSIVE: VADParams(threshold=0.99, min_speech_ms=200, min_silence_ms=500),
     VERY_AGGRESSIVE: VADParams(threshold=0.35, min_speech_ms=150, min_silence_ms=400),
 }
 
