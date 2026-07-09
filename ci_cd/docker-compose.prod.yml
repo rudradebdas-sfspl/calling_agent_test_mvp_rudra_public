@@ -1,0 +1,151 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - voiceagent_redisdata:/data
+      - ../redis.conf:/usr/local/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-voiceagent}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - voiceagent_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-voiceagent}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    command: --dev --bind 0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+      LIVEKIT_REDIS_ADDRESS: "redis:6379"
+
+  migrate:
+    image: ${GHCR_IMAGE_PREFIX}/backend:${TAG}
+    env_file: ../.env
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-voiceagent}
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  backend:
+    image: ${GHCR_IMAGE_PREFIX}/backend:${TAG}
+    restart: unless-stopped
+    env_file: ../.env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-voiceagent}
+      LIVEKIT_URL: ws://livekit:7880
+      CACHE_BACKEND: redis
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "1"
+      REDIS_NAMESPACE: voiceagent
+    command: ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD-SHELL", "python - <<'PY'\nimport urllib.request\nurllib.request.urlopen('http://localhost:8000/health', timeout=5)\nPY"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    image: ${GHCR_IMAGE_PREFIX}/backend:${TAG}
+    restart: unless-stopped
+    env_file: ../.env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-voiceagent}
+      LIVEKIT_URL: ws://livekit:7880
+      CACHE_BACKEND: redis
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "1"
+      REDIS_NAMESPACE: voiceagent
+    command: ["python", "-m", "backend.worker.agent_worker", "start"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    image: ${GHCR_IMAGE_PREFIX}/frontend:${TAG}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5173:80"
+
+  livekit-sip:
+    image: livekit/sip:latest
+    restart: unless-stopped
+    command: --config /livekit-sip.yaml
+    network_mode: host
+    volumes:
+      - ../livekit-sip.yaml:/livekit-sip.yaml:ro
+    depends_on:
+      livekit:
+        condition: service_started
+
+  sip-proxy:
+    image: ${GHCR_IMAGE_PREFIX}/sip-proxy:${TAG}
+    restart: unless-stopped
+    env_file: ../.env
+    network_mode: host
+
+  sip-setup:
+    image: ${GHCR_IMAGE_PREFIX}/backend:${TAG}
+    env_file: ../.env
+    depends_on:
+      livekit:
+        condition: service_started
+      backend:
+        condition: service_healthy
+    environment:
+      LIVEKIT_URL: ws://livekit:7880
+    command: ["python", "-u", "auto_setup_trunks.py"]
+    volumes:
+      - ../sip_trunk_ids.json:/app/sip_trunk_ids.json
+    profiles: ["setup"]
+
+volumes:
+  voiceagent_pgdata:
+  voiceagent_redisdata:

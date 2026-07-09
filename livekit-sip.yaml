@@ -1,0 +1,10 @@
+api_key: T1YUTFAudZhG7Dry
+api_secret: -sn6OMWrqS0LoCYm4X61CGd3mw7ji-4z06mByu-XyEkyFcGn
+ws_url: ws://127.0.0.1:7882
+redis:
+  address: 127.0.0.1:6380
+logging:
+  level: info
+sip:
+  ip: "172.16.1.74"
+

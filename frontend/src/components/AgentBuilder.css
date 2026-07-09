@@ -1,0 +1,215 @@
+/* ==========================================
+   Agent Builder — dark theme
+   ========================================== */
+.agent-builder {
+  max-width: 1100px;
+  margin: 0 auto;
+  color: var(--text-primary);
+  animation: fadeIn 0.35s ease;
+}
+
+.builder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.builder-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.builder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.builder-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 18px 6px;
+  transition: border-color var(--transition);
+}
+.builder-section:hover {
+  border-color: var(--border-hover);
+}
+
+.builder-section h3 {
+  margin: 0 0 14px;
+  font-size: 1rem;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  font-weight: 600;
+}
+
+/* ---- Fields ---- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-size: 0.85rem;
+}
+
+.field > span {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.field input[type="text"],
+.field input[type="number"],
+.field select,
+.field textarea {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: inherit;
+  transition: all var(--transition);
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.field select {
+  cursor: pointer;
+  appearance: auto;
+}
+
+.field.toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.field.toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.field.slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.field.slider strong {
+  color: var(--accent);
+}
+
+.hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: -6px 0 14px;
+  line-height: 1.4;
+}
+
+/* ---- Footer ---- */
+.builder-footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.save-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 12px 32px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+.save-btn:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.save-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.builder-error {
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: var(--red-bg);
+  color: var(--red);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  border: 1px solid rgba(248, 81, 73, 0.2);
+}
+
+.kb-upload {
+  margin-top: 4px;
+}
+
+.kb-btn {
+  display: inline-block;
+  padding: 6px 14px;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: 6px;
+  color: #a5b4fc;
+  font-size: 13px;
+  margin-top: 8px;
+  transition: background 0.2s;
+}
+.kb-btn:hover {
+  background: rgba(99, 102, 241, 0.25);
+}
+
+.kb-file-list {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+}
+.kb-file-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.04);
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+.kb-file-list li span:first-child {
+  flex: 1;
+  color: #e2e8f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kb-chunks {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.kb-delete {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+  line-height: 1;
+}

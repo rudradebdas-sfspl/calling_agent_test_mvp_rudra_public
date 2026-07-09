@@ -1,0 +1,78 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyc
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- Virtual envs ----
+.venv/
+venv/
+env/
+
+# ---- Node / frontend ----
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.vite/
+frontend/.vite/
+
+# ---- Secrets / local config ----
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# ---- Runtime / logs ----
+*.log
+worker.log
+worker_trimmed.log
+sip_trunk_ids.json
+
+# ---- OS / editor ----
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# ---- Keys / certificates / credentials ----
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+id_rsa
+id_rsa.pub
+*_rsa
+*.service-account.json
+service-account*.json
+credentials.json
+client_secret*.json
+
+# ---- Database / local storage ----
+*.sqlite
+*.sqlite3
+*.db
+postgres-data/
+redis-data/
+
+# ---- Uploads / generated runtime files ----
+uploads/
+media/
+recordings/
+audio/
+tmp/
+temp/
+
+# ---- Docker local overrides ----
+docker-compose.override.yml

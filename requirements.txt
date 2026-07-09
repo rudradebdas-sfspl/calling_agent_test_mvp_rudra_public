@@ -1,0 +1,38 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+sqlalchemy>=2.0
+psycopg[binary]>=3.1
+alembic>=1.13
+pydantic>=2.6
+pydantic-settings>=2.2
+httpx>=0.27
+
+# LiveKit + worker
+livekit>=0.18
+livekit-api>=0.7
+livekit-agents[silero]>=0.10
+
+# Provider SDKs (only the ones you actually use are required at runtime)
+google-genai>=0.3       # Gemini
+openai>=1.30            # OpenAI-compatible providers
+# Sarvam / Deepgram / Cartesia are called over HTTP via httpx (no SDK needed)
+
+# Pluggable TTS package (Cartesia / Sarvam providers).
+# Docker installs this automatically; for local dev run:
+#   pip install ./packages/tts_core
+#   pip install ./packages/stt_core
+
+# Knowledgebase / RAG
+pypdf>=4.0              # PDF text extraction
+python-multipart>=0.0.9 # file upload (multipart/form-data)
+pgvector>=0.3          # SQLAlchemy vector/halfvec types for pgvector
+google-genai>=0.3      # embeddings (gemini-embedding-001) + Gemini LLM
+
+# Noise cancellation (Quail / ai-coustics)
+numpy>=1.26
+aic-sdk>=0.1            # import name: aic_sdk; needs AIC_SDK_LICENSE
+
+redis>=5.0
+
+sarvamai==0.1.28
+openpyxl>=3.1

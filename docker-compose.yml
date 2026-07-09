@@ -1,0 +1,185 @@
+# =============================================================================
+# Voice Agent Platform — Docker Compose
+#
+# Usage:  docker compose up --build
+#
+# Services:
+#   db        — PostgreSQL 16 (data persisted in a Docker volume)
+#   livekit   — LiveKit dev server
+#   migrate   — one-shot Alembic migration runner
+#   backend   — FastAPI API server  (port 8000)
+#   worker    — LiveKit agent worker pipeline
+#   frontend  — Vite React dev server (port 5173)
+# =============================================================================
+
+
+
+services:
+  # ---- Redis (LiveKit SIP coordination + app cache/session store) ----
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server /usr/local/etc/redis/redis.conf
+    ports:
+      - "127.0.0.1:6380:6379"   # host:6380 → container:6379 (avoids conflict with existing Redis at 6379)
+    volumes:
+      - redisdata:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+
+  # ---- PostgreSQL ----
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app123
+      POSTGRES_DB: app_db
+    ports:
+      - "5433:5432"    # host:5433 → container:5432 (avoids conflict with local PG)
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d app_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ---- LiveKit Server ----
+  livekit:
+    image: livekit/livekit-server:latest
+    restart: unless-stopped
+    command: --dev --bind 0.0.0.0
+    depends_on:
+      - redis
+    ports:
+      - "7882:7880"    # host:7882 → container:7880 (avoids conflict with local LK)
+      - "7883:7881"
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+      LIVEKIT_REDIS_ADDRESS: "redis:6379"   # internal Docker DNS → same Redis livekit-sip uses
+
+  # ---- Alembic migration (run-once init container) ----
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://app_user:app123@db:5432/app_db
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  # ---- Backend API (FastAPI) ----
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      # Override to point at Docker-internal services
+      DATABASE_URL: postgresql+psycopg://app_user:app123@db:5432/app_db
+      LIVEKIT_URL: ws://livekit:7880
+      # Cache — internal Redis. DB 1 keeps app keys separate from LiveKit (DB 0).
+      CACHE_BACKEND: redis
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "1"
+      REDIS_NAMESPACE: voiceagent
+
+  # ---- Agent Worker (LiveKit agents pipeline) ----
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      livekit:
+        condition: service_started
+      redis:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://app_user:app123@db:5432/app_db
+      LIVEKIT_URL: ws://livekit:7880
+      # Cache — must match the backend so they share session/cache keys.
+      CACHE_BACKEND: redis
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "1"
+      REDIS_NAMESPACE: voiceagent
+    command: ["python", "-m", "backend.worker.agent_worker", "start"]
+    # Give the worker access to the host for Ollama if needed
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ---- Frontend (Vite React dev server) ----
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE: http://localhost:8000
+
+  # ---- LiveKit SIP ----
+  livekit-sip:
+    image: livekit/sip:latest
+    restart: unless-stopped
+    command: --config /livekit-sip.yaml
+    network_mode: "host"
+    volumes:
+      - ./livekit-sip.yaml:/livekit-sip.yaml
+    depends_on:
+      livekit:
+        condition: service_started
+
+  # ---- SIP Proxy ----
+  sip-proxy:
+    build: ./sip-proxy
+    restart: unless-stopped
+    network_mode: "host"
+    env_file: .env
+
+  # ---- SIP Setup (Auto trunks) ----
+  sip-setup:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "-u", "auto_setup_trunks.py"]
+    depends_on:
+      livekit:
+        condition: service_started
+    env_file: .env
+    environment:
+      LIVEKIT_URL: ws://livekit:7880
+    volumes:
+      - ./.env:/app/.env
+      - ./sip_trunk_ids.json:/app/sip_trunk_ids.json
+      - ./auto_setup_trunks.py:/app/auto_setup_trunks.py
+
+volumes:
+  pgdata:
+  redisdata:

@@ -1,0 +1,220 @@
+name: Voice Agent CI/CD
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: voice-agent-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+
+jobs:
+  lint:
+    name: Python lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install lint tools
+        run: pip install -r requirements-dev.txt
+      - name: Ruff check
+        run: ruff check backend module telephony sip-proxy
+
+  unit-tests:
+    name: Offline unit tests
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
+      CACHE_BACKEND: redis
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/postgres
+      GEMINI_API_KEY: ""
+      SARVAM_API_KEY: ""
+      CARTESIA_API_KEY: ""
+      DEEPGRAM_API_KEY: ""
+      AIC_SDK_LICENSE: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Run fast mocked tests
+        run: pytest -q tests/unit --cov=backend --cov=module --cov-report=term-missing
+
+  integration-tests:
+    name: API + DB + Redis tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PYTHONPATH: .
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/postgres
+      CACHE_BACKEND: redis
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      REDIS_DB: 1
+      GEMINI_API_KEY: ""
+      SARVAM_API_KEY: ""
+      CARTESIA_API_KEY: ""
+      DEEPGRAM_API_KEY: ""
+      AIC_SDK_LICENSE: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Run integration tests
+        run: pytest -q tests/integration --cov=backend --cov=module --cov-append --cov-report=term-missing
+
+  frontend-build:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  container-images:
+    name: Docker build${{ github.ref == 'refs/heads/main' && ' + push' || '' }}
+    needs: [lint, unit-tests, integration-tests, frontend-build]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            context: .
+            file: Dockerfile.backend
+          - name: frontend
+            context: .
+            file: Dockerfile.frontend
+          - name: sip-proxy
+            context: sip-proxy
+            file: sip-proxy/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        if: github.ref == 'refs/heads/main' && vars.ENABLE_IMAGE_PUSH == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build image on every PR, push only on main
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: ${{ github.ref == 'refs/heads/main' && vars.ENABLE_IMAGE_PUSH == 'true' }}
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:latest
+
+  deploy-staging:
+    name: Deploy staging
+    needs: container-images
+    if: github.ref == 'refs/heads/main' && vars.ENABLE_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: SSH deploy staging
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ~/voice-agent
+            git fetch --all
+            git reset --hard origin/main
+            export TAG=${{ github.sha }}
+            export GHCR_IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}
+            bash ci_cd/scripts/deploy.sh
+
+  deploy-production:
+    name: Deploy production
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/main' && vars.ENABLE_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: SSH deploy production
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PROD_DEPLOY_HOST || secrets.DEPLOY_HOST }}
+          username: ${{ secrets.PROD_DEPLOY_USER || secrets.DEPLOY_USER }}
+          key: ${{ secrets.PROD_DEPLOY_SSH_KEY || secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ~/voice-agent
+            git fetch --all
+            git reset --hard origin/main
+            export TAG=${{ github.sha }}
+            export GHCR_IMAGE_PREFIX=${{ env.IMAGE_PREFIX }}
+            bash ci_cd/scripts/deploy.sh
+
+  notify-failure:
+    name: Notify failure
+    needs: [lint, unit-tests, integration-tests, frontend-build, container-images, deploy-staging, deploy-production]
+    if: failure()
+    runs-on: ubuntu-latest
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    steps:
+      - name: Slack failure notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        run: |
+          curl -fsS -X POST -H 'Content-type: application/json' \
+            --data '{"text":"Voice Agent CI/CD failed: ${{ github.repository }} @ ${{ github.sha }}"}' \
+            "$SLACK_WEBHOOK_URL"

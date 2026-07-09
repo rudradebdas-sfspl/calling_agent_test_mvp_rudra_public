@@ -1,0 +1,265 @@
+/* ==========================================
+   VoiceCall — Live call interface
+   ========================================== */
+
+.call-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 120px);
+  animation: fadeIn 0.4s ease;
+}
+
+/* ---- Call card ---- */
+.call-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 48px 56px;
+  text-align: center;
+  min-width: 400px;
+  max-width: 500px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.call-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), #9f7aea, var(--green));
+  background-size: 200% auto;
+  animation: gradient-slide 3s linear infinite;
+}
+
+@keyframes gradient-slide {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Agent avatar */
+.call-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent) 0%, #9f7aea 50%, #e879f9 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  font-size: 2.2rem;
+  position: relative;
+}
+
+/* Pulsing ring when connected */
+.call-avatar.is-live::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--green);
+  animation: ripple 1.8s ease-out infinite;
+}
+
+.call-agent-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  letter-spacing: -0.01em;
+}
+
+.call-agent-desc {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 24px;
+}
+
+/* ---- Status indicator ---- */
+.call-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 28px;
+}
+
+.call-status.idle {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.call-status.connecting {
+  background: var(--yellow-bg);
+  color: var(--yellow);
+  border: 1px solid rgba(210, 153, 34, 0.2);
+  animation: pulse 1s ease-in-out infinite;
+}
+.call-status.connected {
+  background: var(--green-bg);
+  color: var(--green);
+  border: 1px solid rgba(63, 185, 80, 0.2);
+}
+.call-status.error {
+  background: var(--red-bg);
+  color: var(--red);
+  border: 1px solid rgba(248, 81, 73, 0.2);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.call-status.connected .status-dot {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* Telephony UI */
+.telephony-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.telephony-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: left;
+}
+
+.telephony-section h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.telephony-section p {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.outbound-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input-field {
+  flex: 1;
+  background: var(--bg-main);
+  border: 1px solid var(--border-light);
+  color: var(--text-main);
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-field:focus {
+  border-color: var(--accent);
+}
+
+.did-box {
+  background: var(--bg-main);
+  border: 1px solid var(--border-light);
+  padding: 1rem;
+  border-radius: 6px;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.did-number {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 1px;
+}
+
+.did-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 0;
+  font-style: italic;
+}
+
+.telephony-divider {
+  height: 1px;
+  background: var(--border-light);
+  width: 100%;
+}
+
+.call-message {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.call-message.success {
+  background: rgba(46, 204, 113, 0.1);
+  color: #2ecc71;
+  border: 1px solid rgba(46, 204, 113, 0.2);
+}
+
+.call-message.error {
+  background: rgba(231, 76, 60, 0.1);
+  color: #e74c3c;
+  border: 1px solid rgba(231, 76, 60, 0.2);
+}
+
+.call-btn-mute.muted {
+  background: var(--yellow-bg);
+  color: var(--yellow);
+  border-color: rgba(210, 153, 34, 0.3);
+}
+
+.call-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.call-btn-label {
+  position: absolute;
+  bottom: -22px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ---- Back button ---- */
+.call-back {
+  margin-bottom: 28px;
+  align-self: flex-start;
+}
+
+/* ---- Error message ---- */
+.call-error {
+  margin-top: 16px;
+  padding: 10px 16px;
+  background: var(--red-bg);
+  color: var(--red);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  max-width: 400px;
+}
