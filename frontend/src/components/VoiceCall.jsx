@@ -19,18 +19,7 @@ export default function VoiceCall({ agent, onBack }) {
     setMessage(null);
 
     try {
-      // Create custom API endpoint wrapper if it doesn't exist, or just fetch directly
-      const response = await fetch("/api/sessions/outbound", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent_id: agent.id, phone_number: phoneNumber })
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.detail || data.message || "Failed to make call");
-      }
+      await sessionsApi.outbound(agent.id, phoneNumber);
 
       setStatus("success");
       setMessage(`Outbound call initiated to ${phoneNumber}. Please wait for the phone to ring.`);

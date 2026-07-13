@@ -1,5 +1,7 @@
 // Tiny fetch wrapper for the Agent Builder. Set VITE_API_BASE in your .env.
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
+const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  `${window.location.protocol}//${window.location.hostname}:8000`;
 
 async function request(path, options = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -34,6 +36,11 @@ export const sessionsApi = {
     request("/api/sessions/start", {
       method: "POST",
       body: JSON.stringify({ agent_id: agentId }),
+    }),
+  outbound: (agentId, phoneNumber) =>
+    request("/api/sessions/outbound", {
+      method: "POST",
+      body: JSON.stringify({ agent_id: agentId, phone_number: phoneNumber }),
     }),
 };
 

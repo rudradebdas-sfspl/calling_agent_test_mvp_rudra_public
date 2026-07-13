@@ -52,7 +52,7 @@ def start_session(payload: StartSessionRequest, db: Session = Depends(get_db)):
     return StartSessionResponse(
         agent_id=agent.id,
         room=room,
-        url=settings.LIVEKIT_URL,
+        url=settings.LIVEKIT_PUBLIC_URL or settings.LIVEKIT_URL,
         token=token,
     )
 

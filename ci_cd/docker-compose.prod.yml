@@ -1,6 +1,8 @@
 services:
   redis:
     image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
     restart: unless-stopped
     command: redis-server /usr/local/etc/redis/redis.conf
     volumes:
@@ -37,6 +39,7 @@ services:
     ports:
       - "7880:7880"
       - "7881:7881"
+      - "7882:7882/udp"
     environment:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
       LIVEKIT_REDIS_ADDRESS: "redis:6379"
@@ -112,9 +115,10 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "5173:80"
+      - "5173:5173"
 
   livekit-sip:
+    profiles: ["telephony"]
     image: livekit/sip:latest
     restart: unless-stopped
     command: --config /livekit-sip.yaml
@@ -126,6 +130,7 @@ services:
         condition: service_started
 
   sip-proxy:
+    profiles: ["telephony"]
     image: ${GHCR_IMAGE_PREFIX}/sip-proxy:${TAG}
     restart: unless-stopped
     env_file: ../.env
@@ -143,6 +148,7 @@ services:
       LIVEKIT_URL: ws://livekit:7880
     command: ["python", "-u", "auto_setup_trunks.py"]
     volumes:
+      - ../.env:/app/.env
       - ../sip_trunk_ids.json:/app/sip_trunk_ids.json
     profiles: ["setup"]
 
