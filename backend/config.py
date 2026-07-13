@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     # ----- LiveKit -----
     LIVEKIT_URL: str = "ws://localhost:7880"
+    LIVEKIT_PUBLIC_URL: str = ""
     LIVEKIT_API_KEY: str = ""
     LIVEKIT_API_SECRET: str = ""
 
